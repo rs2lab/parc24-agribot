@@ -3,7 +3,7 @@
 <package format="3">
   <name>parc24_agribot</name>
   <version>0.1.0</version>
-  <description>Smart UniCV PARC 2024 Engineers League Agribot Agent</description>
+  <description>Smart UniCV - PARC 2024 Engineers League Agribot Agent</description>
   <maintainer email="rs2lab@unicv.cv">RS2LAB</maintainer>
   <license>MIT</license>
 
@@ -11,6 +11,8 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>geodesy</depend>
 

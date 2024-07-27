@@ -23,10 +23,17 @@ class AgribotCropYieldEstimator(Node):
         self.left_tracker = CentroidTracker(10)
         self.right_tracker = CentroidTracker(10)
 
-        self.perceptor.register_state_update_listener(
-            sensor_type=SensorType.RIGHT_CAM,
-            callback=self.image_right_callback,
+        self.create_subscription(
+            String,
+            "/parc_robot/robot_status",
+            self.status_callback,
+            DEFAULT_QoS_PROFILE_VALUE,
         )
+
+        # self.perceptor.register_state_update_listener(
+        #     sensor_type=SensorType.RIGHT_CAM,
+        #     callback=self.image_right_callback,
+        # )
 
         self.perceptor.register_state_update_listener(
             sensor_type=SensorType.LEFT_CAM,
@@ -76,19 +83,19 @@ class AgribotCropYieldEstimator(Node):
     def detect_red_fruits(self, image, camera_name):
 
         # Definir a altura limite para a máscara
-        height_limit = 200  # Ajuste conforme necessário
+        #height_limit = 200  # Ajuste conforme necessário
 
         # Criar uma máscara do mesmo tamanho que a imagem
-        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        #mask = np.zeros(image.shape[:2], dtype=np.uint8)
 
         # Preencher a parte inferior da máscara com branco (1)
-        mask[height_limit:, :] = 255
+        #mask[height_limit:, :] = 255
 
         # Aplicar a máscara na imagem para a detecção
         # Usando a máscara para limitar a área de detecção
-        image_masked = cv2.bitwise_and(image, image, mask=mask)
+        #image_masked = cv2.bitwise_and(image, image, mask=mask)
         # Convertendo a imagem de BGR para HSV
-        hsv_image = cv2.cvtColor(image_masked, cv2.COLOR_BGR2HSV)
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         # Definir os limites de cor para os tomates (vermelho)
         lower_red1 = np.array([160, 100, 100])

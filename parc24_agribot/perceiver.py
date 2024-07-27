@@ -18,7 +18,7 @@ class SensorType(Enum):
     POSE = "/zed/zed_node/pose"
     POINT_CLOUD = "/zed/zed_node/point_cloud/cloud_registered"
     FUSED_CLOUD = "/zed/zed_node/mapping/fused_cloud"
-    FRONT_CAM = "/zed2_center_camera/image_raw"  # XXX: check
+    FRONT_CAM = "/zed/zed_node/rgb/image_rect_color"  # XXX: check
     LEFT_CAM = "/left_camera/image_raw"  # XXX: check
     RIGHT_CAM = "/right_camera/image_raw"  # XXX: check
     ODOM = "/zed/zed_node/odom"

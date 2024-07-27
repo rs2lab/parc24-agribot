@@ -40,8 +40,8 @@ class AgribotController:
         goal.init()
         while goal.has_next_step():
             pose = goal.next_goal_pose()
+            self._agent.get_logger().info(f"Pursuing Goal To Pose {pose}")
             self._base_nav.goToPose(pose.to_pose_stamped())
-            self._logger.info(f"Pursuing Goal {goal}")
             while not self._base_nav.isTaskComplete():
                 feedback = self._base_nav.getFeedback()
                 if feedback.navigation_duration > 600:

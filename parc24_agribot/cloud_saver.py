@@ -4,13 +4,13 @@ import open3d as o3d
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 from .perceiver import SensorType
-from .constants import DEFAULT_QoS_PROFILE_VALUE
+from .constants import DEFAULT_QoS_PROFILE_VALUE, AGRIBOT_CLOUD_SAVER_NODE_NAME
 from . import ruler
 
 
 class PointCloudSubscriber(Node):
     def __init__(self):
-        super().__init__("sunicv_cloud_saver")
+        super().__init__(AGRIBOT_CLOUD_SAVER_NODE_NAME)
         self.subscription = self.create_subscription(
             PointCloud2,
             SensorType.POINT_CLOUD.value,

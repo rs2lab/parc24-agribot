@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'start_navigation_agent = parc24_agribot.agent:main',
+            'cloud_saver = parc24_agribot.cloud_saver:main',
         ],
     },
 )

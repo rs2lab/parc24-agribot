@@ -8,10 +8,7 @@ from .action import Action, SingleStepStopAction
 from .constants import DEFAULT_QoS_PROFILE_VALUE
 
 
-# XXX: update to the correct topic name
-ROBOT_NAV_CONTROL_TOPIC = os.getenv(
-    "ROBOT_NAV_CONTROL_TOPIC", "/robot_base_controller/cmd_vel_unstamped"
-)
+NAV_PUB_TOPIC = "/cmd_vel"
 
 
 class AgribotController:
@@ -21,9 +18,7 @@ class AgribotController:
         self._agent = agent
         self._logger = self._agent.get_logger()
         self._publisher = self._agent.create_publisher(
-            Twist,
-            ROBOT_NAV_CONTROL_TOPIC,
-            DEFAULT_QoS_PROFILE_VALUE,
+            Twist, NAV_PUB_TOPIC, DEFAULT_QoS_PROFILE_VALUE
         )
 
     @property

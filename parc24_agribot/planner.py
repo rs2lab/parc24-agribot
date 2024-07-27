@@ -25,6 +25,7 @@ class AgribotNavigationPlanner:
         )
         self._path_map = PathMap.load_path_map(path_map_path)
         self._path_goal_idx = 0
+        self._first = True
 
     @property
     def has_enqueued(self) -> bool:
@@ -86,8 +87,16 @@ class AgribotNavigationPlanner:
                     goal_pose.position.y,
                 )
 
-                dist = max(np.abs(g_x - c_x), np.abs(g_y - c_y))
-                self.add_next(TimedAction(x=dist, theta=theta, secs=1))
+                dist = ((g_x - c_x)**2 + (g_y - c_y)**2) ** 0.5
+                # self.add_next(TimedAction(x=dist, theta=theta, secs=1))
+                scale = (dist) ** (1/dist)
+                self._agent.get_logger().info(f"Dist: {dist}")
+                if self._first:
+                    self._first = False
+                    self.add_next(TimedAction(x=0, theta=0, secs=2))
+                if dist > 0:
+                    self.add_next(StepAction(x=dist / 8, theta=theta / 2, steps=4))
+                    self.add_next(StepAction(x=dist / 20, theta=theta / 2, steps=2))
                 self._path_goal_idx += 1
 
         return self.resolve_next()

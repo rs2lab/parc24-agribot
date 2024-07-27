@@ -1,9 +1,9 @@
 import numpy as np
+import open3d as o3d
 import math
 import sys
 import struct
 import ctypes
-import pcl
 
 from sensor_msgs.msg import PointCloud2, PointField
 
@@ -135,23 +135,10 @@ def destruct_point_cloud_to_xyz_rgb(cloud: PointCloud2) -> tuple[np.ndarray]:
     return xyz, rgb
 
 
-def cloud_from_xyz_rgb(xyz: np.ndarray, rgb: np.ndarray) -> pcl.PointCloud:
-    cloud = pcl.PointCloud(pcl.PointXYZRGB)
-
-    # Combine XYZ and RGB data
-    points = np.hstack((xyz, rgb))
-
-    # Populate PCL point cloud
-    for point in points:
-        p = pcl.PointXYZRGB()
-        p.x = point[0]
-        p.y = point[1]
-        p.z = point[2]
-        p.r = int(point[3])
-        p.g = int(point[4])
-        p.b = int(point[5])
-        cloud.append(p)
-
+def cloud_from_xyz_rgb(xyz: np.ndarray, rgb: np.ndarray) -> o3d.geometry.PointCloud:
+    cloud = o3d.geometry.PointCloud()
+    cloud.points = o3d.utility.Vector3dVector(xyz)
+    cloud.colors = o3d.utility.Vector3dVector(rgb / 255.0)
     return cloud
 
 

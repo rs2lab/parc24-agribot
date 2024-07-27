@@ -1,5 +1,5 @@
 import rclpy
-import pcl
+import open3d as o3d
 
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
@@ -23,7 +23,7 @@ class PointCloudSubscriber(Node):
         self._counter += 1
         xyz, rgb = ruler.destruct_point_cloud_to_xyz_rgb(data)
         cloud = ruler.cloud_from_xyz_rgb(xyz, rgb)
-        pcl.save_XYZRGBA(cloud, f"cloud_{self._counter}.pcd")
+        o3d.io.write_point_cloud(f"cloud_{self._counter}.pcd", cloud)
 
 
 def main(args=None):

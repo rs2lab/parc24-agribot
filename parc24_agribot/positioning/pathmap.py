@@ -36,5 +36,5 @@ class PathMap:
         return PathMap(poses)
 
     @property
-    def poses(self) -> list:
+    def poses(self) -> list[PoseNode]:
         return self._poses

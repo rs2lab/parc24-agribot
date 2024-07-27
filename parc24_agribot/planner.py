@@ -40,6 +40,7 @@ class AgribotNavigationPlanner:
         if self.has_enqueued:
             return self.resolve_next()
 
-        # TODO
+        for pose in self._path_map.poses:
+            self.add_next(BasicGoal(pose))
 
         return self.resolve_next()

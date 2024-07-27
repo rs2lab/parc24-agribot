@@ -11,6 +11,9 @@ navigation: update-build
 cloud-saver: update-build
 	-ros2 run $(PACKAGE_NAME) cloud_saver
 
+yield-estimation: update-build
+	-ros2 run $(PACKAGE_NAME) yield_estimator
+
 clean:
 	-@rm -rv ~/ros2_ws/build/$(PACKAGE_NAME)
 	-@rm -rv ~/ros2_ws/install/$(PACKAGE_NAME)

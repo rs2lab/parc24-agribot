@@ -37,8 +37,8 @@ class AgribotPerceiver:
         self._agent = agent
         self._cv_bridge = CvBridge()
         self._lp = LaserProjection()
-        self._tf_buffer = tf2_ros.Buffer()
-        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer)
+        # self._tf_buffer = tf2_ros.Buffer()
+        # self._tf_listener = tf2_ros.TransformListener(self._tf_buffer)
         self._pose_state = None
         self._point_cloud_state = None
         self._fused_cloud_state = None
@@ -141,7 +141,7 @@ class AgribotPerceiver:
 
     def _point_cloud_state_update_handler(self, data):
         self._point_cloud_state = data
-        self._cloud_scan_state = self._lp.projectLaser(data)
+        # self._cloud_scan_state = self._lp.projectLaser(data) # XXX
         self._trigger_callbacks(SensorType.POINT_CLOUD, data)
         # TODO: finish
         # try:
@@ -184,11 +184,16 @@ class AgribotPerceiver:
         self._trigger_callbacks(SensorType.TF, data)
 
     def _odom_state_update_handler(self, data):
+        self._odom_state = data
         self._trigger_callbacks(SensorType.ODOM, data)
 
     def _joint_states_update_handler(self, data):
         self._joint_states = data
         self._trigger_callbacks(SensorType.JOINT_STATES, data)
+
+    def _imu_state_update_handler(self, data):
+        self._imu_state = data
+        self._trigger_callbacks(SensorType.IMU, data)
 
     def snapshot(self) -> dict[SensorType]:
         """Returns a snapshopt of the perceived state of the environment in the specific instant

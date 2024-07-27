@@ -15,7 +15,7 @@ class AgribotCropYieldEstimator(Node):
         self,
         show_images: bool = True,
     ) -> None:
-        super.__init__(AGRIBOT_YE_NODE_NAME)
+        super().__init__(AGRIBOT_YE_NODE_NAME)
         self.robot_finished = False
         self.show_images = show_images
         self.perceptor = AgribotPerceiver(self)
@@ -62,14 +62,14 @@ class AgribotCropYieldEstimator(Node):
         try:
             self.detect_red_fruits(image, camera_name)
             tracker = self.left_tracker if camera_name == "left" else self.right_tracker
-            self.agent.get_logger().info(
+            self.get_logger().info(
                 f"Current frame fruit count from {camera_name} camera: {tracker.nextObjectID}"
             )
             if self.show_images:
                 # Exibir a imagem com as frutas detectadas
                 self.display_image(image, camera_name)
         except Exception as e:
-            self.agent.get_logger().error(
+            self.get_logger().error(
                 f"Error processing image from {camera_name} camera: {e}"
             )
 
@@ -190,7 +190,7 @@ class AgribotCropYieldEstimator(Node):
         msg = CropYield()
         msg.data = self.total_tracked
         self.crop_yield_pub.publish(msg)
-        self.agent.get_logger().info(f"Final crop yield: {self.total_tracked}")
+        self.get_logger().info(f"Final crop yield: {self.total_tracked}")
 
 
 def main(args=None):

@@ -11,7 +11,7 @@ class Goal(ABC):
         pass
 
     @abstractmethod
-    def next_goal_pose(self, fn) -> PoseNode:
+    def next_goal_pose(self) -> PoseNode:
         pass
 
     def has_next_step(self) -> bool:
@@ -28,5 +28,5 @@ class BasicGoal(Goal):
         super().__init__()
         self._goal_pose = goal_pose
 
-    def next_goal(self, fn) -> PoseNode:
+    def next_goal_pose(self, fn) -> PoseNode:
         return self._goal_pose

@@ -6,8 +6,8 @@ from geometry_msgs.msg import Twist
 
 from .action import Action, SingleStepStopAction
 from .goal import Goal, BasicGoal
-from .constants import DEFAULT_QoS_PROFILE_VALUE
-from nav2_simple_commander.robot_navigator import BasicNavigator
+from .constants import DEFAULT_QoS_PROFILE_VALUE, AGRIBOT_BASE_NAVIGATOR_NAME
+from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 
 NAV_PUB_TOPIC = "/cmd_vel"
 
@@ -22,7 +22,7 @@ class AgribotController:
         self._publisher = self._agent.create_publisher(
             Twist, NAV_PUB_TOPIC, DEFAULT_QoS_PROFILE_VALUE
         )
-        self._base_nav = BasicNavigator()
+        self._base_nav = BasicNavigator(AGRIBOT_BASE_NAVIGATOR_NAME)
 
     @property
     def publisher(self) -> Publisher:
@@ -39,9 +39,21 @@ class AgribotController:
     def pursue_goal(self, goal: Goal) -> None:
         goal.init()
         while goal.has_next_step():
-            self._logger.info(f"Pursuing Action {goal}")
-            pose = goal.next_goal()
+            pose = goal.next_goal_pose()
+            self._base_nav.goToPose(pose.to_pose_stamped())
+            self._logger.info(f"Pursuing Goal {goal}")
+            while not self._base_nav.isTaskComplete():
+                feedback = self._base_nav.getFeedback()
+                if feedback.navigation_duration > 600:
+                    self._base_nav.cancelTask()
         goal.finish()
+        result = self._base_nav.getResult()
+        if result == TaskResult.SUCCEEDED:
+            print("Goal {goal} succeeded!")
+        elif result == TaskResult.CANCELED:
+            print("Goal {goal} was canceled!")
+        elif result == TaskResult.FAILED:
+            print("Goal {goal} failed!")
 
     def execute_action(self, action: Action) -> None:
         """Executes a given action."""

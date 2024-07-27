@@ -1,49 +1,45 @@
+import os
 from rclpy.node import Node
+from launch_ros.substitutions import FindPackageShare
 
 from .extra import BasicQueue
 from .perceiver import *
 from .action import *
-from . import ruler
+from .goal import *
+from .positioning import PathMap
+
 
 class AgribotNavigationPlanner:
     def __init__(self, agent: Node, perceptor: AgribotPerceiver) -> None:
         self._agent = agent
         self._perceptor = perceptor
-        self._action_queue = BasicQueue()
+        self._plan_queue = BasicQueue()
+        pkd_share = FindPackageShare(package="parc24_agribot")
+        path_map_path = os.path.join(
+            pkd_share.find("parc24_agribot"),
+            "path_maps",
+            "path_map_01",
+        )
+        self._path_map = PathMap.load_path_map(path_map_path)
 
     @property
-    def has_enqueued_actions(self) -> bool:
-        return not self._action_queue.is_empty()
+    def has_enqueued(self) -> bool:
+        return not self._plan_queue.is_empty()
 
-    def resolve_next_action(self) -> Action | None:
-        """Returns the next action in the queue, removing it from the structure."""
-        if self.has_enqueued_actions:
-            return self._action_queue.dequeue()
+    def resolve_next(self) -> Action | Goal | None:
+        """Returns the next action or goal in the queue, removing it from the structure."""
+        if self.has_enqueued:
+            return self._plan_queue.dequeue()
         return None
 
-    def add_next_action(self, action: Action) -> None:
-        """Add a new action to the action queue."""
-        self._action_queue.enqueue(action)
+    def add_next(self, action: Action | Goal) -> None:
+        """Add a new action or goal to the queue."""
+        self._plan_queue.enqueue(action)
 
-    def plan_next_action(self) -> Action | None:
-        if self.has_enqueued_actions:
-            return self.resolve_next_action()
+    def plan_next(self) -> Action | None:
+        if self.has_enqueued:
+            return self.resolve_next()
 
-        snapshot = self._perceptor.snapshot()
-        pose = snapshot[SensorType.POSE]
-        cloud = snapshot[SensorType.POINT_CLOUD]
-        scan = snapshot[SensorType.LASER_SCAN]
-        imu = snapshot[SensorType.IMU]
+        # TODO
 
-        if imu :
-            orientation_list = [
-                imu.orientation.x,
-                imu.orientation.y,
-                imu.orientation.z,
-                imu.orientation.w,
-            ]
-
-            (roll, pitch, yaw) = ruler.euler_from_quaternion(orientation_list)
-
-
-        return self.resolve_next_action()
+        return self.resolve_next()

@@ -5,6 +5,8 @@ from .constants import AGRIBOT_AGENT_NODE_NAME
 from .controller import AgribotController
 from .planner import AgribotNavigationPlanner
 from .perceiver import AgribotPerceiver
+from .goal import Goal
+from .action import Action
 
 
 class AgribotAgent(Node):
@@ -20,8 +22,11 @@ class AgribotAgent(Node):
         )
 
     def execute(self) -> None:
-        if action := self.planner.plan_next_action():
-            self.controller.execute_action(action)
+        if plan := self.planner.plan_next():
+            if isinstance(plan, Action):
+                self.controller.execute_action(plan)
+            elif isinstance(plan, Goal):
+                self.controller.pursue_goal(plan)
 
 
 def main(args=None):

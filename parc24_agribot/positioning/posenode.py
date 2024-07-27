@@ -1,4 +1,4 @@
-import datetime
+from geometry_msgs.msg import PoseStamped
 
 
 class Position:
@@ -77,3 +77,14 @@ class PoseNode:
     @property
     def orientation(self) -> float:
         return self._orientation
+
+    def to_pose_stamped(self) -> PoseStamped:
+        pose = PoseStamped()
+        pose.pose.position.x = self.position.x
+        pose.pose.position.y = self.position.y
+        pose.pose.position.z = self.position.z
+        pose.pose.orientation.x = self.orientation.x
+        pose.pose.orientation.y = self.orientation.y
+        pose.pose.orientation.z = self.orientation.z
+        pose.pose.orientation.w = self.orientation.w
+        return pose

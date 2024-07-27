@@ -2,36 +2,46 @@ from enum import Enum
 from types import FunctionType
 from cv_bridge import CvBridge
 from rclpy.node import Node
+from laser_geometry import LaserProjection
 
 from .constants import DEFAULT_QoS_PROFILE_VALUE
 
+import rclpy.time
+import tf2_ros
 import nav_msgs.msg
 import sensor_msgs.msg
 import geometry_msgs.msg
 import tf2_msgs.msg
-import rclpy
 
 
 class SensorType(Enum):
-    POINT_CLOUD = "/zed2_leftd_camera/points"
-    FRONT_CAM = "/zed2_center_camera/image_raw"
-    LEFT_CAM = "/left_camera/image_raw"
-    RIGHT_CAM = "/right_camera/image_raw"
-    ODOM = "/robot_base_controller/odom"
+    POSE = "/zed/zed_node/pose"
+    POINT_CLOUD = "/zed/zed_node/point_cloud/cloud_registered"
+    FUSED_CLOUD = "/zed/zed_node/mapping/fused_cloud"
+    FRONT_CAM = "/zed2_center_camera/image_raw"  # XXX: check
+    LEFT_CAM = "/left_camera/image_raw"  # XXX: check
+    RIGHT_CAM = "/right_camera/image_raw"  # XXX: check
+    ODOM = "/zed/zed_node/odom"
     LASER_SCAN = "/scan"
     JOINT_STATES = "/joint_states"
-    INITIAL_POSE = "/initialpose"
-    GOAL_POSE = "/goal_pose"
-    GPS = "/gps/fix"
-    IMU = "/imu_plugin/out"
+    IMU = "/zed/zed_node/imu/data"
     TF = "/tf"
+    CLOUD_LASER = "/local/cloud_laser"
+
+
+ZED_BASE_TF_FRAME = "zed_camera_link"
 
 
 class AgribotPerceiver:
     def __init__(self, agent: Node) -> None:
         self._agent = agent
         self._cv_bridge = CvBridge()
+        self._lp = LaserProjection()
+        self._tf_buffer = tf2_ros.Buffer()
+        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer)
+        self._pose_state = None
         self._point_cloud_state = None
+        self._fused_cloud_state = None
         self._laser_scan_state = None
         self._front_cam_state = None
         self._left_cam_state = None
@@ -39,30 +49,28 @@ class AgribotPerceiver:
         self._odom_state = None
         self._tf_state = None
         self._joint_states = None
-        self._initial_pose_state = None
-        self._goal_pose_state = None
-        self._gps_state = None
         self._imu_state = None
+        self._cloud_scan_state = None
 
         # register state update callbacks
         self._state_update_listeners = {}
 
         self._agent.create_subscription(
-            geometry_msgs.msg.PoseWithCovarianceStamped,
-            SensorType.INITIAL_POSE.value,
-            self._initial_pose_state_update_handler,
-            DEFAULT_QoS_PROFILE_VALUE,
-        )
-        self._agent.create_subscription(
-            geometry_msgs.msg.PoseStamped,
-            SensorType.GOAL_POSE.value,
-            self._goal_pose_state_update_handler,
+            geometry_msgs.msg.Pose,
+            SensorType.POSE.value,
+            self._pose_state_update_handler,
             DEFAULT_QoS_PROFILE_VALUE,
         )
         self._agent.create_subscription(
             sensor_msgs.msg.PointCloud2,
             SensorType.POINT_CLOUD.value,
             self._point_cloud_state_update_handler,
+            DEFAULT_QoS_PROFILE_VALUE,
+        )
+        self._agent.create_subscription(
+            sensor_msgs.msg.PointCloud2,
+            SensorType.FUSED_CLOUD.value,
+            self._fused_cloud_state_update_handler,
             DEFAULT_QoS_PROFILE_VALUE,
         )
         self._agent.create_subscription(
@@ -108,89 +116,11 @@ class AgribotPerceiver:
             DEFAULT_QoS_PROFILE_VALUE,
         )
         self._agent.create_subscription(
-            sensor_msgs.msg.NavSatFix,
-            SensorType.GPS.value,
-            self._gps_state_update_handler,
-            DEFAULT_QoS_PROFILE_VALUE,
-        )
-        self._agent.create_subscription(
             sensor_msgs.msg.Imu,
             SensorType.IMU.value,
             self._imu_state_update_handler,
             DEFAULT_QoS_PROFILE_VALUE,
         )
-
-        self._goal_lat_param = None
-        self._goal_lon_param = None
-
-        # self._goal_cartesian_x_pos = None
-        # self._goal_cartesian_y_pos = None
-
-        # self._first_cartesian_x_pos = None
-        # self._first_cartesian_y_pos = None
-
-        # try:
-        #     self._agent.declare_parameter("goal_latitude", rclpy.Parameter.Type.DOUBLE)
-        #     self._agent.declare_parameter("goal_longitude", rclpy.Parameter.Type.DOUBLE)
-
-        #     # Get goal localization from world coordinates yaml file
-        #     self._goal_lat_param = self._agent.get_parameter("goal_latitude")
-        #     self._goal_lon_param = self._agent.get_parameter("goal_longitude")
-
-        #     x, y = gps_to_cartesian(
-        #         self._goal_lat_param.value, self._goal_lon_param.value
-        #     )
-
-        #     self._goal_cartesian_x_pos = x
-        #     self._goal_cartesian_y_pos = y
-
-        #     self._agent.get_logger().info(
-        #         "Goal gps localization: LAT = %f, LON = %f"
-        #         % (self.goal_lat, self.goal_lon)
-        #     )
-
-        #     self._agent.get_logget().info(
-        #         "Goal cartesian localization: X = %f, Y = %f"
-        #         % (self.goal_cartesian_x_pos, self.goal_cartesian_y_pos)
-        #     )
-        # except:
-        #     self._agent.get_logger().warn(
-        #         "Couldn't get the goal LATITUDE and LONGITUDE localizations from the ROS params"
-        #     )
-
-    @property
-    def goal_lat(self) -> float | None:
-        if self._goal_lat_param:
-            return self._goal_lat_param.value
-        return None
-
-    @property
-    def goal_lon(self) -> float | None:
-        if self._goal_lon_param:
-            return self._goal_lon_param.value
-        return None
-
-    # @property
-    # def goal_cartesian_x_pos(self) -> float | None:
-    #     return self._goal_cartesian_x_pos
-
-    # @property
-    # def goal_cartesian_y_pos(self) -> float | None:
-    #     return self._goal_cartesian_y_pos
-
-    # @property
-    # def first_cartesian_x_pos(self) -> float | None:
-    #     return self._first_cartesian_x_pos
-
-    # @property
-    # def first_cartesian_y_pos(self) -> float | None:
-    #     return self._first_cartesian_y_pos
-
-    # def current_cartesian_position(self) -> tuple[float] | None:
-    #     if self._gps_state is not None:
-    #         x, y = gps_to_cartesian(self._gps_state.latitude, self._gps_state.longitude)
-    #         return (x, y)
-    #     return None
 
     def register_state_update_listener(
         self, sensor_type: SensorType, callback: FunctionType
@@ -209,17 +139,26 @@ class AgribotPerceiver:
             for callback in callbacks:
                 callback(data)
 
-    def _initial_pose_state_update_handler(self, data):
-        self._initial_pose_state = data
-        self._trigger_callbacks(SensorType.INITIAL_POSE, data)
-
-    def _goal_pose_state_update_handler(self, data):
-        self._goal_pose_state = data
-        self._trigger_callbacks(SensorType.GOAL_POSE, data)
-
     def _point_cloud_state_update_handler(self, data):
         self._point_cloud_state = data
+        self._cloud_scan_state = self._lp.projectLaser(data)
         self._trigger_callbacks(SensorType.POINT_CLOUD, data)
+        # TODO: finish
+        # try:
+        #     transform = self._tf_buffer.lookup_transform(
+        #         ZED_BASE_TF_FRAME,
+        #         data.header.frame_id,
+        #         rclpy.time.Time(),
+        #     )
+        #     self._cloud_scan_state = self.tr
+
+    def _fused_cloud_state_update_handler(self, data):
+        self._fused_cloud_state = data
+        self._trigger_callbacks(SensorType.FUSED_CLOUD, data)
+
+    def _pose_state_update_handler(self, data):
+        self._pose_state = data
+        self._trigger_callbacks(SensorType.POSE, data)
 
     def _laser_scan_state_update_handler(self, data):
         self._laser_scan_state = data
@@ -251,36 +190,18 @@ class AgribotPerceiver:
         self._joint_states = data
         self._trigger_callbacks(SensorType.JOINT_STATES, data)
 
-    def _gps_state_update_handler(self, data):
-        # if self._first_cartesian_x_pos is None or self._first_cartesian_y_pos is None:
-        #     x, y = gps_to_cartesian(data.latitude, data.longitude)
-        #     self._first_cartesian_x_pos = x
-        #     self._first_cartesian_y_pos = y
-        #     self._agent.get_logger().info(
-        #         "First GPS Position: x = %f, y = %f"
-        #         % (self._first_cartesian_x_pos, self._first_cartesian_y_pos)
-        #     )
-        self._gps_state = data
-        self._trigger_callbacks(SensorType.GPS, data)
-
-    def _imu_state_update_handler(self, data):
-        self._imu_state = data
-        self._trigger_callbacks(SensorType.IMU, data)
-
     def snapshot(self) -> dict[SensorType]:
         """Returns a snapshopt of the perceived state of the environment in the specific instant
         to guarantee consistence of the data when processing them together."""
         return {
-            SensorType.INITIAL_POSE: self._initial_pose_state,
-            SensorType.GOAL_POSE: self._goal_pose_state,
             SensorType.POINT_CLOUD: self._point_cloud_state,
+            SensorType.FUSED_CLOUD: self._fused_cloud_state,
             SensorType.FRONT_CAM: self._front_cam_state,
             SensorType.LEFT_CAM: self._left_cam_state,
             SensorType.RIGHT_CAM: self._right_cam_state,
             SensorType.ODOM: self._odom_state,
             SensorType.LASER_SCAN: self._laser_scan_state,
             SensorType.JOINT_STATES: self._joint_states,
-            SensorType.GPS: self._gps_state,
             SensorType.IMU: self._imu_state,
             SensorType.TF: self._tf_state,
         }

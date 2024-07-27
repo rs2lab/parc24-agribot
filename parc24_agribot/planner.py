@@ -3,7 +3,7 @@ from rclpy.node import Node
 from .extra import BasicQueue
 from .perceiver import *
 from .action import *
-
+from . import ruler
 
 class AgribotNavigationPlanner:
     def __init__(self, agent: Node, perceptor: AgribotPerceiver) -> None:
@@ -29,6 +29,21 @@ class AgribotNavigationPlanner:
         if self.has_enqueued_actions:
             return self.resolve_next_action()
 
-        # TODO: implement
+        snapshot = self._perceptor.snapshot()
+        pose = snapshot[SensorType.POSE]
+        cloud = snapshot[SensorType.POINT_CLOUD]
+        scan = snapshot[SensorType.LASER_SCAN]
+        imu = snapshot[SensorType.IMU]
+
+        if imu :
+            orientation_list = [
+                imu.orientation.x,
+                imu.orientation.y,
+                imu.orientation.z,
+                imu.orientation.w,
+            ]
+
+            (roll, pitch, yaw) = ruler.euler_from_quaternion(orientation_list)
+
 
         return self.resolve_next_action()

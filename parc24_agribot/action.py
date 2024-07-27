@@ -33,10 +33,9 @@ class Action(ABC):
         """Initializes all variables needed to execute the action."""
         pass
 
-    @abstractmethod
     def has_next_step(self) -> bool:
         """Returns True if this action has a next step to be executed."""
-        pass
+        return False
 
     def consume_step(self, fn) -> None:
         """Consumes one step of the action. Receives a function `fn`

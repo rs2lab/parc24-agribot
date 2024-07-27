@@ -1,3 +1,4 @@
+import rclpy
 import numpy as np
 import cv2
 
@@ -6,20 +7,18 @@ from parc_robot_interfaces.msg import CropYield
 from std_msgs.msg import String
 from .perceiver import AgribotPerceiver, SensorType
 from .centroid_tracker import CentroidTracker
-from .constants import DEFAULT_QoS_PROFILE_VALUE
+from .constants import DEFAULT_QoS_PROFILE_VALUE, AGRIBOT_YE_NODE_NAME
 
 
 class AgribotCropYieldEstimator(Node):
     def __init__(
         self,
-        agent: Node,
-        perceptor: AgribotPerceiver,
         show_images: bool = True,
     ) -> None:
-        self.agent = agent
+        super.__init__(AGRIBOT_YE_NODE_NAME)
         self.robot_finished = False
         self.show_images = show_images
-        self.perceptor = perceptor
+        self.perceptor = AgribotPerceiver(self)
 
         self.left_tracker = CentroidTracker(10)
         self.right_tracker = CentroidTracker(10)
@@ -75,9 +74,9 @@ class AgribotCropYieldEstimator(Node):
             )
 
     def detect_red_fruits(self, image, camera_name):
-        
+
         # Definir a altura limite para a máscara
-        height_limit = 200# Ajuste conforme necessário
+        height_limit = 200  # Ajuste conforme necessário
 
         # Criar uma máscara do mesmo tamanho que a imagem
         mask = np.zeros(image.shape[:2], dtype=np.uint8)
@@ -192,3 +191,14 @@ class AgribotCropYieldEstimator(Node):
         msg.data = self.total_tracked
         self.crop_yield_pub.publish(msg)
         self.agent.get_logger().info(f"Final crop yield: {self.total_tracked}")
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    yield_estimator = AgribotCropYieldEstimator()
+    rclpy.spin(yield_estimator)
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

@@ -5,7 +5,6 @@ from .constants import AGRIBOT_AGENT_NODE_NAME
 from .controller import AgribotController
 from .planner import AgribotNavigationPlanner
 from .perceiver import AgribotPerceiver
-from .ye import AgribotCropYieldEstimator
 
 
 class AgribotAgent(Node):
@@ -15,11 +14,6 @@ class AgribotAgent(Node):
         self.perceptor = AgribotPerceiver(self)
         self.controller = AgribotController(self)
         self.planner = AgribotNavigationPlanner(self, self.perceptor)
-        self.yield_estimator = AgribotCropYieldEstimator(
-            self,
-            self.perceptor,
-            show_images=False,
-        )
         self.create_timer(
             self._exec_period_secs,
             self.execute,

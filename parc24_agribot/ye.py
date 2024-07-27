@@ -75,15 +75,28 @@ class AgribotCropYieldEstimator(Node):
             )
 
     def detect_red_fruits(self, image, camera_name):
+        
+        # Definir a altura limite para a máscara
+        height_limit = 200# Ajuste conforme necessário
+
+        # Criar uma máscara do mesmo tamanho que a imagem
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+
+        # Preencher a parte inferior da máscara com branco (1)
+        mask[height_limit:, :] = 255
+
+        # Aplicar a máscara na imagem para a detecção
+        # Usando a máscara para limitar a área de detecção
+        image_masked = cv2.bitwise_and(image, image, mask=mask)
         # Convertendo a imagem de BGR para HSV
-        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        hsv_image = cv2.cvtColor(image_masked, cv2.COLOR_BGR2HSV)
 
         # Definir os limites de cor para os tomates (vermelho)
-        lower_red1 = np.array([0, 100, 100])
-        upper_red1 = np.array([10, 255, 255])
+        lower_red1 = np.array([160, 100, 100])
+        upper_red1 = np.array([180, 255, 255])
         mask1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
 
-        lower_red2 = np.array([160, 100, 100])
+        lower_red2 = np.array([170, 50, 30])
         upper_red2 = np.array([180, 255, 255])
         mask2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
 

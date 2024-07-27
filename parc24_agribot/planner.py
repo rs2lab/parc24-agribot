@@ -1,4 +1,6 @@
 import os
+import numpy as np
+
 from rclpy.node import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -7,6 +9,7 @@ from .perceiver import *
 from .action import *
 from .goal import *
 from .positioning import PathMap
+from . import ruler
 
 
 class AgribotNavigationPlanner:
@@ -21,6 +24,7 @@ class AgribotNavigationPlanner:
             "path_map_01",
         )
         self._path_map = PathMap.load_path_map(path_map_path)
+        self._path_goal_idx = 0
 
     @property
     def has_enqueued(self) -> bool:
@@ -40,7 +44,50 @@ class AgribotNavigationPlanner:
         if self.has_enqueued:
             return self.resolve_next()
 
-        for pose in self._path_map.poses:
-            self.add_next(BasicGoal(pose))
+        snapshot = self._perceptor.snapshot()
+        # imu = snapshot[SensorType.IMU]
+        odom = snapshot[SensorType.ODOM]
+
+        if self._path_goal_idx < len(self._path_map.poses):
+            if odom:
+                goal_pose = self._path_map.poses[self._path_goal_idx]
+
+                current_orientation_list = [
+                    odom.pose.pose.orientation.x,
+                    odom.pose.pose.orientation.y,
+                    odom.pose.pose.orientation.z,
+                    odom.pose.pose.orientation.w,
+                ]
+
+                goal_orientation_list = [
+                    goal_pose.orientation.x,
+                    goal_pose.orientation.y,
+                    goal_pose.orientation.z,
+                    goal_pose.orientation.w,
+                ]
+
+                (c_roll, c_pitch, c_yaw) = ruler.euler_from_quaternion(
+                    current_orientation_list
+                )
+                (g_roll, g_pitch, g_yaw) = ruler.euler_from_quaternion(
+                    goal_orientation_list
+                )
+
+                theta = g_roll - c_roll
+
+                (c_x, c_y, c_z) = (
+                    odom.pose.pose.position.x,
+                    odom.pose.pose.position.y,
+                    odom.pose.pose.position.y,
+                )
+                (g_x, g_y, g_z) = (
+                    goal_pose.position.x,
+                    goal_pose.position.y,
+                    goal_pose.position.y,
+                )
+
+                dist = max(np.abs(g_x - c_x), np.abs(g_y - c_y))
+                self.add_next(TimedAction(x=dist, theta=theta, secs=1))
+                self._path_goal_idx += 1
 
         return self.resolve_next()

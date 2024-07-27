@@ -71,11 +71,11 @@ class PoseNode:
         return self._id
 
     @property
-    def position(self) -> float:
+    def position(self) -> Position:
         return self._position
 
     @property
-    def orientation(self) -> float:
+    def orientation(self) -> Orientation:
         return self._orientation
 
     def to_pose_stamped(self) -> PoseStamped:

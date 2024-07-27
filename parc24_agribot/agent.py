@@ -23,12 +23,11 @@ class AgribotAgent(Node):
 
     def execute(self) -> None:
         if plan := self.planner.plan_next():
-            # self.get_logger().info("HERE")
-            # if plan is Action:
-            #     self.controller.execute_action(plan)
-            # elif issubclass(type(plan), Goal):
-            self.controller.pursue_goal(plan)
-
+            self.get_logger().info(f"Type:{type(plan)} {issubclass(type(plan), Action)}")
+            if issubclass(type(plan), Goal):
+                self.controller.pursue_goal(plan)
+            elif issubclass(type(plan), Action):
+                self.controller.execute_action(plan)
 
 def main(args=None):
     rclpy.init(args=args)

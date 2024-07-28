@@ -2,7 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from parc24_phase1_agribot.perceiver import SensorType
+from parc24_agribot.perceiver import SensorType
 
 
 def generate_launch_description():
@@ -23,7 +23,7 @@ def generate_launch_description():
                 ],
                 parameters=[
                     {
-                        "target_frame": "zed_camera_link",
+                        "target_frame": "zed_camera_center",
                         "transform_tolerance": 0.01,
                         "min_height": 0.0,
                         "max_height": 1.0,

@@ -16,20 +16,17 @@ class AgribotAgent(Node):
         self.perceptor = AgribotPerceiver(self)
         self.controller = AgribotController(self)
         self.planner = AgribotNavigationPlanner(self, self.perceptor)
-        self.create_timer(
-            self._exec_period_secs,
-            self.execute,
-        )
+        self.create_timer(self._exec_period_secs, self.execute)
 
     def execute(self) -> None:
         if plan := self.planner.plan_next():
-            self.get_logger().info(f"Type:{type(plan)} {issubclass(type(plan), Action)}")
             if issubclass(type(plan), Goal):
                 self.controller.pursue_goal(plan)
             elif issubclass(type(plan), Action):
                 self.controller.execute_action(plan)
             else:
                 self.get_logger().info("No plan.")
+
 
 def main(args=None):
     rclpy.init(args=args)

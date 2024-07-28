@@ -159,15 +159,21 @@ class AgribotNavigationPlanner:
     def plan_next(self) -> Action | None:
         if self.has_enqueued:
             return self.resolve_next()
+
         snapshot = self._perceptor.snapshot()
-        if (fm := snapshot[SensorType.FRONT_CAM]) is not None:
-            # fm = cv2.cvtColor(fm, cv2.COLOR_BGR2RGB)
-            masked = vision.mask_image(fm, vision.FRONT_MASK)
-            cv2.imwrite('masked.png', masked)
-            # self._agent.get_logger().info(f"Im Shape = {fm.shape}, Mask Shape = {vision.FRONT_MASK.shape}")
-            # self._agent.get_logger().info(f"Im mtype = {fm.mtype}, Mask mtype = {vision.FRONT_MASK.mtype}")
         (move, theta, alpha) = self._planning_controller.plan_move(snapshot)
+
         self._agent.get_logger().info(
             f"Move = {move}, Theta = {theta}, Alpha = {alpha}"
         )
+
+        scale = 0.1 ** np.abs(theta / 2)
+
+        self._agent.get_logger().info(f"x1 = {0.65 * scale}, theta1 = {theta * 0.1}")
+        self._agent.get_logger().info(f"x2 = {0.2 * scale}, theta1 = {alpha * 0.1}")
+
+        self.add_next(StepAction(x=0.65 * scale, theta=theta * 0.1, steps=10))
+        self.add_next(SingleStepStopAction())
+        self.add_next(StepAction(x=0.2 * scale, theta=alpha * 0.1, steps=10))
+        self.add_next(SingleStepStopAction())
         return self.resolve_next()

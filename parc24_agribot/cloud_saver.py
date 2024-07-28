@@ -5,7 +5,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
 from .perceiver import SensorType
 from .constants import DEFAULT_QoS_PROFILE_VALUE, AGRIBOT_CLOUD_SAVER_NODE_NAME
-from . import ruler
+from . import vision
 
 
 class PointCloudSubscriber(Node):
@@ -21,8 +21,8 @@ class PointCloudSubscriber(Node):
 
     def listener_callback(self, data):
         self._counter += 1
-        xyz, rgb = ruler.destruct_point_cloud_to_xyz_rgb(data)
-        cloud = ruler.cloud_from_xyz_rgb(xyz, rgb)
+        xyz, rgb = vision.destruct_point_cloud_to_xyz_rgb(data)
+        cloud = vision.od3_cloud_from_xyz_rgb(xyz, rgb)
         o3d.io.write_point_cloud(f"cloud_{self._counter}.pcd", cloud)
 
 

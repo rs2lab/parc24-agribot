@@ -2,6 +2,9 @@ import os
 import numpy as np
 import abc
 
+from parc24_agribot.action import Action
+from parc24_agribot.goal import Goal
+from parc24_agribot.perceiver import SensorType
 from rclpy.node import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -10,12 +13,12 @@ from .perceiver import *
 from .action import *
 from .goal import *
 from .positioning import PathMap
-from . import ruler
+from . import ruler, vision
 
 
 class Planning(abc.ABC):
     @abc.abstractmethod
-    def plan(self, snapshot: dict[SensorType]) -> Action:
+    def plan(self, snapshot: dict[SensorType]) -> Action | Goal:
         pass
 
 
@@ -81,6 +84,15 @@ class PathMapBasedPlanning(Planning):
                 self.add_next(StepAction(x=dist / 8, theta=theta / 2, steps=4))
                 self.add_next(StepAction(x=dist / 20, theta=theta / 2, steps=2))
             self._path_goal_idx += 1
+
+
+class ImageObstableDetectionBasedPlaning(Planning):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def plan(self, snapshot: dict[SensorType]) -> Action | Goal:
+        pass # TODO
+
 
 
 class AgribotNavigationPlanner:

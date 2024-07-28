@@ -8,12 +8,13 @@ from parc24_agribot.perceiver import SensorType
 from rclpy.node import Node
 from launch_ros.substitutions import FindPackageShare
 
-from .extra import BasicQueue
+from .extra import BasicQueue, ForgetfulMemory
 from .perceiver import *
 from .action import *
 from .goal import *
 from .positioning import PathMap
 from . import ruler, vision
+import cv2
 
 
 class Planning(abc.ABC):
@@ -23,8 +24,9 @@ class Planning(abc.ABC):
 
 
 class PathMapBasedPlanning(Planning):
-    def __init__(self) -> None:
+    def __init__(self, planner) -> None:
         super().__init__()
+        self._planner = planner
         pkd_share = FindPackageShare(package="parc24_agribot")
         path_map_path = os.path.join(
             pkd_share.find("parc24_agribot"),
@@ -33,6 +35,12 @@ class PathMapBasedPlanning(Planning):
         )
         self._path_map = PathMap.load_path_map(path_map_path)
         self._path_goal_idx = 0
+
+    def add_next(self, plan):
+        self._planner.add_next(plan)
+
+    def log(self, message):
+        self._planner._agent.get_logger().info(message)
 
     def plan(self, snapshot: dict[SensorType]) -> Action | Goal:
         odom = snapshot[SensorType.ODOM]
@@ -76,22 +84,51 @@ class PathMapBasedPlanning(Planning):
             dist = ((g_x - c_x)**2 + (g_y - c_y)**2) ** 0.5
             # self.add_next(TimedAction(x=dist, theta=theta, secs=1))
             scale = (dist) ** (1/dist)
-            self._agent.get_logger().info(f"Dist: {dist}")
-            if self._first:
-                self._first = False
-                self.add_next(TimedAction(x=0, theta=0, secs=2))
+            self.log(f"Dist: {dist}")
             if dist > 0:
-                self.add_next(StepAction(x=dist / 8, theta=theta / 2, steps=4))
-                self.add_next(StepAction(x=dist / 20, theta=theta / 2, steps=2))
+                self.add_next(StepAction(x=min(0.20, dist / 12), theta=theta / 8, steps=4))
+                self.add_next(StepAction(x=min(0.20, dist / 20), theta=theta / 6, steps=2))
             self._path_goal_idx += 1
 
 
-class ImageObstableDetectionBasedPlaning(Planning):
-    def __init__(self) -> None:
+class ImageObstableDetectionBasedPlanning(Planning):
+    def __init__(self, planner) -> None:
         super().__init__()
+        self._planner = planner
+        self._last_actions_memory = ForgetfulMemory()
+        self._has_turned_first_row = False
 
-    def plan(self, snapshot: dict[SensorType]) -> Action | Goal:
-        pass # TODO
+    def plan(self, snapshot: dict[SensorType]) -> list[Action | Goal]:
+        return self._move_forward(snapshot)
+
+    def _move_forward(self, snapshot) -> list[Action]:
+        front_cam_state = snapshot[SensorType.FRONT_CAM]
+        if front_cam_state is not None:
+            # front_cam_state = front_cam_state.reshape(vision.WIDTH, vision.)
+            self._planner._agent.get_logger().info(f'front mask shape = {vision.FRONT_MASK.shape}')
+            self._planner._agent.get_logger().info(f'front_cam_shape = {front_cam_state.shape}')
+            front_cam_state = cv2.cvtColor(front_cam_state, cv2.COLOR_RGB2HSV)
+            front_theta = ruler.calculate_front_theta(front_cam_state)
+            last_theta_alpha = self._last_actions_memory.last()
+            last_theta = last_theta_alpha[0] if last_theta_alpha is not None else None
+            theta = ruler.theta_weighted_sum(front_theta=front_theta, last_theta=last_theta)
+            alpha = ruler.alpha_theta(theta, last_theta=last_theta)
+            scale = 0.1 ** np.abs(front_theta / 2)
+            self._last_actions_memory.add((theta, alpha))
+            self._planner._agent.get_logger().info(f'theta = {theta}, alpha = {alpha}')
+            return [
+                StepAction(x=min(0.34, 0.65 * scale), theta=theta * 0.1, steps=10),
+                SingleStepStopAction(),
+                StepAction(x=min(0.34, 0.2 * scale), theta=alpha * 0.1, steps=10),
+                SingleStepStopAction(),
+            ]
+        return []
+
+    def _make_a_turn(self, snapshot) -> list[Action]:
+        pass
+
+    def finish(self, snapshot) -> list[Action]:
+        pass
 
 
 
@@ -100,6 +137,8 @@ class AgribotNavigationPlanner:
         self._agent = agent
         self._perceptor = perceptor
         self._plan_queue = BasicQueue()
+        self._imgobsplanning = ImageObstableDetectionBasedPlanning(self)
+        self._planner = PathMapBasedPlanning(self)
 
     @property
     def has_enqueued(self) -> bool:
@@ -120,5 +159,9 @@ class AgribotNavigationPlanner:
             return self.resolve_next()
 
         snapshot = self._perceptor.snapshot()
+        self._planner.plan(snapshot)
+
+        # for action in self._imgobsplanning.plan(snapshot):
+        #     self.add_next(action)
 
         return self.resolve_next()

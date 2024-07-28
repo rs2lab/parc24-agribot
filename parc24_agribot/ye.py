@@ -108,6 +108,9 @@ class AgribotCropYieldEstimator(Node):
 
         mask = mask1 | mask2
 
+        kernel = np.ones((7, 7), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
         # Aplicar filtro de desfoque para reduzir o ruído
         blurred = cv2.GaussianBlur(mask, (9, 9), 10)
 
@@ -194,17 +197,28 @@ class AgribotCropYieldEstimator(Node):
             self.publish_yield()
 
     def publish_yield(self):
+        self.log_total()
         msg = CropYield()
         msg.data = self.total_tracked
         self.crop_yield_pub.publish(msg)
-        self.get_logger().info(f"Final crop yield: {self.total_tracked}")
+
+    def log_total(self):
+        self.get_logger().info(f"Final total crop yield: {self.total_tracked}")
 
 
 def main(args=None):
     rclpy.init(args=args)
-    yield_estimator = AgribotCropYieldEstimator()
-    rclpy.spin(yield_estimator)
-    rclpy.shutdown()
+    try:
+        yield_estimator = AgribotCropYieldEstimator()
+        rclpy.spin(yield_estimator)
+        rclpy.shutdown()
+    except KeyboardInterrupt as e:
+        pass
+    except Exception as e:
+        print("======> Ended with exception:", e.with_traceback())
+    finally:
+        yield_estimator.log_total()
+        yield_estimator.destroy_node()
 
 
 if __name__ == "__main__":

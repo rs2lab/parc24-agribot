@@ -7,6 +7,8 @@ import struct
 import ctypes
 
 from sensor_msgs.msg import PointCloud2, PointField
+from functools import reduce
+from cv_bridge import CvBridge
 
 _DATATYPES = {}
 _DATATYPES[PointField.INT8] = ("b", 1)
@@ -19,6 +21,11 @@ _DATATYPES[PointField.FLOAT32] = ("f", 4)
 _DATATYPES[PointField.FLOAT64] = ("d", 8)
 
 DEFAULT_SEG_CRT = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+
+FRONT_LEFT_CAM_REF =  np.array([910, 1080])
+FRONT_RIGHT_CAM_REF = np.array([370, 1080])
+
+_BRIDGE_OBJ = CvBridge()
 
 
 # imported from: https://gist.github.com/SebastianGrans/6ae5cab66e453a14a859b66cd9579239
@@ -191,11 +198,15 @@ HEIGHT = 720
 MASK_TRIANGLE_WIDTH = 1080
 MASK_TRIANGLE_HEIGHT = 480
 
-FRONT_MASK_01 = pad_image(
-  create_triangle_mask(
-    MASK_TRIANGLE_WIDTH, MASK_TRIANGLE_HEIGHT),
-    HEIGHT - MASK_TRIANGLE_HEIGHT, 0, (WIDTH - MASK_TRIANGLE_WIDTH) // 2,
-    (WIDTH - MASK_TRIANGLE_WIDTH) // 2
+FRONT_MASK = pad_image(
+    create_triangle_mask(
+        MASK_TRIANGLE_WIDTH,
+        MASK_TRIANGLE_HEIGHT,
+    ),
+    HEIGHT - MASK_TRIANGLE_HEIGHT,
+    0,
+    (WIDTH - MASK_TRIANGLE_WIDTH) // 2,
+    (WIDTH - MASK_TRIANGLE_WIDTH) // 2,
 )
 
 
@@ -226,7 +237,7 @@ PLANT_BASE_OBSTACLE_LOWER = np.array([  34,   0, 95])
 PLANT_BASE_OBSTACLE_HIGHER = np.array([ 85, 38, 195])
 
 
-def detect_woden_fence_obstacle(image, lower_adjust = 0, upper_adjust = 0, image_is_hsv = False):
+def detect_woden_fence_obstacle(image, lower_adjust = 0, upper_adjust = 0, image_is_hsv = True):
     if not image_is_hsv:
         image = convert_image_to_hsv(image)
     return detect_color_profile(
@@ -236,7 +247,7 @@ def detect_woden_fence_obstacle(image, lower_adjust = 0, upper_adjust = 0, image
         blur_image=False,
     )
 
-def detect_plant_base_obstacle(image, lower_adjust = 0, upper_adjust = 0, image_is_hsv = False):
+def detect_plant_base_obstacle(image, lower_adjust = 0, upper_adjust = 0, image_is_hsv = True):
     if not image_is_hsv:
         image = convert_image_to_hsv(image)
     return detect_color_profile(
@@ -301,3 +312,22 @@ def draw_lines_on_image(image, lines, color_rgb = (255, 0, 0)):
 
     return cv2.addWeighted(image, 0.8, line_image, 1, 1)
 
+
+def make_line_detection(image, *, detect_fn, reduce_fn=None, crop_fn=None, mask=None, display_images=False):
+    lines = None
+    if image is not None:
+        original_image = image
+        if crop_fn is not None:
+            image = crop_fn(image)
+        if mask is not None:
+            image = mask_image(image, mask=mask)
+
+        image = detect_fn(image, apply_hsv=True)
+        lines = hough_lines(image, apply_canny=True)
+
+        if display_images is True and image is not None and lines is not None:
+            cv2.imshow('camera', draw_lines_on_image(original_image, lines))
+            cv2.waitKey(1)
+        if lines is not None and reduce_fn is not None:
+            lines = reduce(reduce_fn, lines.reshape(-1, 4))
+    return lines

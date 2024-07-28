@@ -44,7 +44,7 @@ def main(args=None):
     except KeyboardInterrupt as e:
         pass
     except Exception as e:
-        print("======> Ended with exception:", e)
+        print("======> Ended with exception:", e.with_traceback())
     finally:
         agent.destroy_node()
     print(

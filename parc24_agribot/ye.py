@@ -30,10 +30,10 @@ class AgribotCropYieldEstimator(Node):
             DEFAULT_QoS_PROFILE_VALUE,
         )
 
-        # self.perceptor.register_state_update_listener(
-        #     sensor_type=SensorType.RIGHT_CAM,
-        #     callback=self.image_right_callback,
-        # )
+        self.perceptor.register_state_update_listener(
+             sensor_type=SensorType.RIGHT_CAM,
+             callback=self.image_right_callback,
+         )
 
         self.perceptor.register_state_update_listener(
             sensor_type=SensorType.LEFT_CAM,
@@ -81,20 +81,14 @@ class AgribotCropYieldEstimator(Node):
             )
 
     def detect_red_fruits(self, image, camera_name):
+        # height_limit = 150  # Ajuste conforme necessário
 
-        # Definir a altura limite para a máscara
-        #height_limit = 200  # Ajuste conforme necessário
+        # vmask = np.zeros(image.shape[:2], dtype=np.uint8)
 
-        # Criar uma máscara do mesmo tamanho que a imagem
-        #mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        # vmask[height_limit:, :] = 255
 
-        # Preencher a parte inferior da máscara com branco (1)
-        #mask[height_limit:, :] = 255
-
-        # Aplicar a máscara na imagem para a detecção
-        # Usando a máscara para limitar a área de detecção
-        #image_masked = cv2.bitwise_and(image, image, mask=mask)
         # Convertendo a imagem de BGR para HSV
+        image = cv2.convertScaleAbs(image, alpha=2, beta=5)
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         # Definir os limites de cor para os tomates (vermelho)
@@ -108,17 +102,20 @@ class AgribotCropYieldEstimator(Node):
 
         mask = mask1 | mask2
 
+        img = mask
+        # img = cv2.bitwise_and(mask, mask, mask=vmask)
+
         kernel = np.ones((7, 7), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        img = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
         # Aplicar filtro de desfoque para reduzir o ruído
-        blurred = cv2.GaussianBlur(mask, (9, 9), 10)
+        blurred = cv2.GaussianBlur(img, (7, 7), 10)
 
         # Detectar círculos usando a Transformada de Hough
         circles = cv2.HoughCircles(
             blurred,
             cv2.HOUGH_GRADIENT,
-            dp=1,
+            dp=1.2,
             minDist=20,
             param1=100,
             param2=20,
@@ -209,7 +206,7 @@ class AgribotCropYieldEstimator(Node):
 def main(args=None):
     rclpy.init(args=args)
     try:
-        yield_estimator = AgribotCropYieldEstimator()
+        yield_estimator = AgribotCropYieldEstimator(show_images=False)
         rclpy.spin(yield_estimator)
         rclpy.shutdown()
     except KeyboardInterrupt as e:

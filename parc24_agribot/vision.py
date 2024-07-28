@@ -22,7 +22,7 @@ _DATATYPES[PointField.FLOAT64] = ("d", 8)
 
 DEFAULT_SEG_CRT = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
 
-FRONT_LEFT_CAM_REF =  np.array([910, 1080])
+FRONT_LEFT_CAM_REF = np.array([910, 1080])
 FRONT_RIGHT_CAM_REF = np.array([370, 1080])
 
 _BRIDGE_OBJ = CvBridge()
@@ -153,43 +153,45 @@ def od3_cloud_from_xyz_rgb(xyz: np.ndarray, rgb: np.ndarray) -> o3d.geometry.Poi
 
 
 def create_triangle_mask(width, height):
-  """Creates a triangular mask of the specified size.
+    """Creates a triangular mask of the specified size.
 
-  Args:
-    width: Width of the mask.
-    height: Height of the mask.
+    Args:
+      width: Width of the mask.
+      height: Height of the mask.
 
-  Returns:
-    A numpy array representing the triangular mask.
-  """
+    Returns:
+      A numpy array representing the triangular mask.
+    """
 
-  mask = np.zeros((height, width), dtype=np.uint8)
+    mask = np.zeros((height, width), dtype=np.uint8)
 
-  # Define the triangle vertices
-  pt1 = (0, height)
-  pt2 = (width, height)
-  pt3 = (width // 2, 0)
+    # Define the triangle vertices
+    pt1 = (0, height)
+    pt2 = (width, height)
+    pt3 = (width // 2, 0)
 
-  # Create a filled triangle
-  cv2.fillConvexPoly(mask, np.array([pt1, pt2, pt3], dtype=np.int32), 255)
+    # Create a filled triangle
+    cv2.fillConvexPoly(mask, np.array([pt1, pt2, pt3], dtype=np.int32), 255)
 
-  return mask
+    return mask
 
 
-def pad_image(img, top, bottom, left, right, borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0]):
-  """Pads an image with zeros.
+def pad_image(
+    img, top, bottom, left, right, borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0]
+):
+    """Pads an image with zeros.
 
-  Args:
-    img: The input image.
-    top, bottom, left, right: The amount of padding to add in each direction.
-    borderType: The type of border.
-    value: The value to fill the border with (default is black).
+    Args:
+      img: The input image.
+      top, bottom, left, right: The amount of padding to add in each direction.
+      borderType: The type of border.
+      value: The value to fill the border with (default is black).
 
-  Returns:
-    The padded image.
-  """
+    Returns:
+      The padded image.
+    """
 
-  return cv2.copyMakeBorder(img, top, bottom, left, right, borderType, value=value)
+    return cv2.copyMakeBorder(img, top, bottom, left, right, borderType, value=value)
 
 
 WIDTH = 1280
@@ -214,9 +216,11 @@ def mask_image(image, mask):
     return cv2.bitwise_and(image, image, mask=mask)
 
 
-def kmeans_segmentation(image, attempts = 10, k = 4, criteria = DEFAULT_SEG_CRT):
+def kmeans_segmentation(image, attempts=10, k=4, criteria=DEFAULT_SEG_CRT):
     td_img = np.float32(image.reshape((-1, 3)))
-    _, label, center = cv2.kmeans(td_img, k, None, criteria, attempts, cv2.KMEANS_PP_CENTERS)
+    _, label, center = cv2.kmeans(
+        td_img, k, None, criteria, attempts, cv2.KMEANS_PP_CENTERS
+    )
 
     center = np.uint8(center)
     res = center[label.flatten()]
@@ -224,21 +228,21 @@ def kmeans_segmentation(image, attempts = 10, k = 4, criteria = DEFAULT_SEG_CRT)
     return res.reshape((image.shape))
 
 
-def detect_color_profile(image, lower_bound, upper_bound, blur_image = False):
+def detect_color_profile(image, lower_bound, upper_bound, blur_image=False):
     if blur_image is True:
         image = cv2.GaussianBlur(image, (5, 5), 0)
     color_mask = cv2.inRange(image, lower_bound, upper_bound)
     return cv2.bitwise_and(image, image, mask=color_mask)
 
 
-WODEN_FENCE_OBSTACLE_LOWER = np.array([  5,   47, 99])
-WODEN_FENCE_OBSTACLE_HIGHER = np.array([ 40, 255, 213])
-PLANT_BASE_OBSTACLE_LOWER = np.array([  34,   0, 95])
-PLANT_BASE_OBSTACLE_HIGHER = np.array([ 85, 38, 195])
+WODEN_FENCE_OBSTACLE_LOWER = np.array([5, 47, 99])
+WODEN_FENCE_OBSTACLE_HIGHER = np.array([40, 255, 213])
+PLANT_BASE_OBSTACLE_LOWER = np.array([34, 0, 95])
+PLANT_BASE_OBSTACLE_HIGHER = np.array([85, 38, 195])
 
 
-def detect_woden_fence_obstacle(image, lower_adjust = 0, upper_adjust = 0, image_is_hsv = True):
-    if not image_is_hsv:
+def detect_woden_fence_obstacle(image, lower_adjust=0, upper_adjust=0, apply_hsv=True):
+    if apply_hsv:
         image = convert_image_to_hsv(image)
     return detect_color_profile(
         image=image,
@@ -247,8 +251,9 @@ def detect_woden_fence_obstacle(image, lower_adjust = 0, upper_adjust = 0, image
         blur_image=False,
     )
 
-def detect_plant_base_obstacle(image, lower_adjust = 0, upper_adjust = 0, image_is_hsv = True):
-    if not image_is_hsv:
+
+def detect_plant_base_obstacle(image, lower_adjust=0, upper_adjust=0, apply_hsv=True):
+    if apply_hsv:
         image = convert_image_to_hsv(image)
     return detect_color_profile(
         image=image,
@@ -257,11 +262,12 @@ def detect_plant_base_obstacle(image, lower_adjust = 0, upper_adjust = 0, image_
         blur_image=False,
     )
 
+
 def convert_image_to_hsv(image):
     return cv2.cvtColor(image, cv2.COLOR_RGB2HSV_FULL)
 
 
-def canny(image, thresh1 = 50, thresh2 = 100, blur_image = False):
+def canny(image, thresh1=50, thresh2=100, blur_image=False):
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
     if blur_image is True:
@@ -297,13 +303,15 @@ def average_slope_intercep(image, lines):
     return np.array([left_line, right_line])
 
 
-def hough_lines(image, min_line_len = 20, max_line_gap = 20, image_is_canny = False):
-    if not image_is_canny:
-        image = canny(image, blur_image = True)
-    return cv2.HoughLinesP(image, 2, np.pi / 180, 10, np.array([]), min_line_len, max_line_gap)
+def hough_lines(image, min_line_len=20, max_line_gap=20, apply_canny=False):
+    if apply_canny:
+        image = canny(image, blur_image=True)
+    return cv2.HoughLinesP(
+        image, 2, np.pi / 180, 10, np.array([]), min_line_len, max_line_gap
+    )
 
 
-def draw_lines_on_image(image, lines, color_rgb = (255, 0, 0)):
+def draw_lines_on_image(image, lines, color_rgb=(255, 0, 0)):
     line_image = np.zeros_like(image)
 
     if lines is not None:
@@ -313,7 +321,9 @@ def draw_lines_on_image(image, lines, color_rgb = (255, 0, 0)):
     return cv2.addWeighted(image, 0.8, line_image, 1, 1)
 
 
-def make_line_detection(image, *, detect_fn, reduce_fn=None, crop_fn=None, mask=None, display_images=False):
+def make_line_detection(
+    image, *, detect_fn, reduce_fn=None, crop_fn=None, mask=None, display_images=False
+):
     lines = None
     if image is not None:
         original_image = image
@@ -326,7 +336,7 @@ def make_line_detection(image, *, detect_fn, reduce_fn=None, crop_fn=None, mask=
         lines = hough_lines(image, apply_canny=True)
 
         if display_images is True and image is not None and lines is not None:
-            cv2.imshow('camera', draw_lines_on_image(original_image, lines))
+            cv2.imshow("camera", draw_lines_on_image(original_image, lines))
             cv2.waitKey(1)
         if lines is not None and reduce_fn is not None:
             lines = reduce(reduce_fn, lines.reshape(-1, 4))

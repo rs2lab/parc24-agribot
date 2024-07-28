@@ -62,12 +62,12 @@ def line_dist_to_point(line, point):
     x1, y1, x2, y2 = line
     x0, y0 = point
     mod = np.abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1))
-    ro = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    ro = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return mod / ro
 
 
 def point_distance(x0, y0, x1, y1):
-    return np.sqrt((x1 - x0)**2 + (y1 - y0)**2)
+    return np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
 
 
 def closest_point(point, other_points):
@@ -92,6 +92,7 @@ def define_line_reducer_on_point(point):
         _, dist_a = closest_point(point, a.reshape(2, 2))
         _, dist_b = closest_point(point, b.reshape(2, 2))
         return a if dist_a < dist_b else b
+
     return reducer
 
 
@@ -99,9 +100,9 @@ def mask_laser_scan(value, lower: int = None, upper: int = None):
     if value is not None:
         mask = np.ones_like(value)
         if lower is not None:
-            mask[:lower] = float('inf')
+            mask[:lower] = float("inf")
         if upper is not None:
-            mask[upper:] = float('inf')
+            mask[upper:] = float("inf")
         return mask * value
     return None
 
@@ -114,15 +115,19 @@ def laser_angles(laser_state):
         return np.arange(min_angle, max_angle, step)
     return None
 
+
 def define_line_reducer_on_point(point):
     def reducer(a, b):
         _, dist_a = closest_point(point, a.reshape(2, 2))
         _, dist_b = closest_point(point, b.reshape(2, 2))
         return a if dist_a < dist_b else b
+
     return reducer
 
 
-def front_shift_transfer_function(closest_front_left_line, closest_front_right_line, hidden = 1.5):
+def front_shift_transfer_function(
+    closest_front_left_line, closest_front_right_line, hidden=1.5
+):
     # EXTEND = (160, 0)
     EXTEND = 0
 
@@ -130,13 +135,17 @@ def front_shift_transfer_function(closest_front_left_line, closest_front_right_l
     (xr, yr), dr = (None, None), None
 
     if closest_front_left_line is not None:
-        (xl, yl), dl = closest_point(vision.FRONT_LEFT_CAM_REF, closest_front_left_line.reshape(2, 2))
+        (xl, yl), dl = closest_point(
+            vision.FRONT_LEFT_CAM_REF, closest_front_left_line.reshape(2, 2)
+        )
     else:
         xl, yl = vision.FRONT_LEFT_CAM_REF - EXTEND
         dl = hidden * point_distance(xl, yl, *vision.FRONT_LEFT_CAM_REF)
 
     if closest_front_right_line is not None:
-        (xr, yr), dr = closest_point(vision.FRONT_RIGHT_CAM_REF, closest_front_right_line.reshape(2, 2))
+        (xr, yr), dr = closest_point(
+            vision.FRONT_RIGHT_CAM_REF, closest_front_right_line.reshape(2, 2)
+        )
     else:
         xr, yr = vision.FRONT_RIGHT_CAM_REF + EXTEND
         dr = hidden * point_distance(xr, yr, *vision.FRONT_RIGHT_CAM_REF)
@@ -145,25 +154,20 @@ def front_shift_transfer_function(closest_front_left_line, closest_front_right_l
     denum = np.log(denum) if denum > np.e else denum
 
     if np.abs(num := dl - dr) > 1 and denum != 0:
-        return (np.pi / 2) * np.tanh((num / denum ** 2))
+        return (np.pi / 2) * np.tanh((num / denum**2))
     return 0
 
 
-def calculate_front_theta(front_cam_state, **kwargs) -> float:
-    front_cam_image = None if not 'front_cam_image' in kwargs else kwargs['front_cam_image']
+def calculate_front_theta(front_cam_image) -> float:
+    front_cam_image = vision.mask_image(front_cam_image, vision.FRONT_MASK)
 
-    if front_cam_image is None and front_cam_state is not None:
-        # front_cam_image = vision.imgmsg_to_cv2(front_cam_state)
-        # front_cam_image = vision.adjust_image_brightness(front_cam_image)
-        front_cam_image = vision.mask_image(front_cam_image, vision.FRONT_MASK)
-
-    front_lane_theta = front_shift_transfer_function(
+    plants_base_theta = front_shift_transfer_function(
         closest_front_left_line=vision.make_line_detection(
             front_cam_image,
             detect_fn=vision.detect_plant_base_obstacle,
             reduce_fn=define_line_reducer_on_point(
                 point=vision.FRONT_LEFT_CAM_REF,
-            )
+            ),
         ),
         closest_front_right_line=vision.make_line_detection(
             front_cam_image,
@@ -172,36 +176,41 @@ def calculate_front_theta(front_cam_state, **kwargs) -> float:
                 point=vision.FRONT_RIGHT_CAM_REF,
             ),
         ),
-        hidden=2
+        hidden=2,
     )
 
-    front_plants_theta = front_shift_transfer_function(
+    woden_fence_theta = front_shift_transfer_function(
         closest_front_left_line=vision.make_line_detection(
             front_cam_image,
             detect_fn=vision.detect_woden_fence_obstacle,
             reduce_fn=define_line_reducer_on_point(
                 point=vision.FRONT_LEFT_CAM_REF,
-            )
+            ),
         ),
         closest_front_right_line=vision.make_line_detection(
             front_cam_image,
             detect_fn=vision.detect_woden_fence_obstacle,
-            reduce_fn=define_line_reducer_on_point(
-                point=vision.FRONT_RIGHT_CAM_REF
-            )
+            reduce_fn=define_line_reducer_on_point(point=vision.FRONT_RIGHT_CAM_REF),
         ),
-        hidden=2
+        hidden=2,
     )
 
-    front_theta = front_lane_theta + front_plants_theta
+    theta = woden_fence_theta + plants_base_theta
 
-    if front_lane_theta != 0 and front_plants_theta != 0:
-        front_theta = front_lane_theta * 0.6559 + front_plants_theta * 0.3441
+    if woden_fence_theta != 0 and plants_base_theta != 0:
+        theta = woden_fence_theta * 0.6559 + plants_base_theta * 0.3441
 
-    return front_theta
+    return theta
 
 
-def theta_weighted_sum(*, front_theta, lateral_theta=0, lateral_weight = 0.65, front_weight = 0.35, last_theta=None):
+def theta_weighted_sum(
+    *,
+    front_theta,
+    lateral_theta=0,
+    lateral_weight=0.65,
+    front_weight=0.35,
+    last_theta=None,
+):
     """Sums the different theta values according to a given weight for each theta"""
     theta = 0
 
